@@ -1,0 +1,102 @@
+{
+  "worlds": [
+    {
+      "slug": "sk-floorauto1",
+      "ref": "sk_floorauto1",
+      "title": "floor finishes + marble counters",
+      "description": "Walk and fly through this world in your browser — no install.",
+      "kind": "floorplan",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sk-floorauto1/",
+      "card": "w/sk-floorauto1/card.jpg",
+      "bytes": 2804577,
+      "gzip": 299868,
+      "recipeBytes": 141,
+      "bakedAt": "2026-09-16"
+    },
+    {
+      "slug": "sk-gframe-mk2-larmfix-prelit-walker",
+      "ref": "sk_gframe_mk2_larmfix_prelit_walker",
+      "title": "mk2 PRELIT walker (hero GI)",
+      "description": "GI-baked colours on a WALKING suit",
+      "kind": "controllable",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sk-gframe-mk2-larmfix-prelit-walker/",
+      "card": "w/sk-gframe-mk2-larmfix-prelit-walker/card.jpg",
+      "bytes": 2965795,
+      "gzip": 918002,
+      "recipeBytes": 2244,
+      "bakedAt": "2026-09-16"
+    },
+    {
+      "slug": "sk-mz-ne410",
+      "ref": "sk_mz_ne410",
+      "title": "Sony MZ-NE410 Net MD Walkman",
+      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "kind": "workbench",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sk-mz-ne410/",
+      "card": "w/sk-mz-ne410/card.jpg",
+      "hero": "w/sk-mz-ne410/hero.jpg",
+      "bytes": 26874569,
+      "gzip": 1704068,
+      "recipeBytes": 9705,
+      "bakedAt": "2026-09-16"
+    },
+    {
+      "slug": "sk-mz-ne410-lit",
+      "ref": "sk_mz_ne410_lit",
+      "title": "Sony MZ-NE410 — GI-baked studio",
+      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "kind": "controllable",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sk-mz-ne410-lit/",
+      "card": "w/sk-mz-ne410-lit/card.jpg",
+      "hero": null,
+      "bytes": 41703103,
+      "gzip": 3362403,
+      "recipeBytes": 377,
+      "bakedAt": "2026-09-16"
+    },
+    {
+      "slug": "sk-wm-fx173",
+      "ref": "sk_wm_fx173",
+      "title": "Sony Walkman WM-FX173",
+      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "kind": "workbench",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sk-wm-fx173/",
+      "card": "w/sk-wm-fx173/card.jpg",
+      "hero": "w/sk-wm-fx173/hero.jpg",
+      "bytes": 41847901,
+      "gzip": 3220344,
+      "recipeBytes": 26839,
+      "bakedAt": "2026-09-16"
+    },
+    {
+      "slug": "sk-wm-fx173-lit",
+      "ref": "sk_wm_fx173_lit",
+      "title": "Sony Walkman WM-FX173 — GI-baked studio",
+      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "kind": "controllable",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sk-wm-fx173-lit/",
+      "card": "w/sk-wm-fx173-lit/card.jpg",
+      "hero": null,
+      "bytes": 63441161,
+      "gzip": 5833788,
+      "recipeBytes": 343,
+      "bakedAt": "2026-09-16"
+    },
+    {
+      "slug": "sony-walkman-tps-l2",
+      "ref": "sony-walkman-tps-l2",
+      "title": "Sony Walkman TPS-L2",
+      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "kind": "workbench",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sony-walkman-tps-l2/",
+      "card": null,
+      "hero": "w/sony-walkman-tps-l2/hero.jpg",
+      "bytes": 53705917,
+      "gzip": 3540855,
+      "recipeBytes": 17597,
+      "bakedAt": "2026-09-16"
+    }
+  ],
+  "updatedAt": "2026-09-16T06:50:45.678Z",
+  "site": "https://zombico.github.io/mojulo-demo-artifacts"
+}

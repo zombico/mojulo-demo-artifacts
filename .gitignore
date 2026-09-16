@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+*.log
+
+# Local-only video capture: the worker and its output both stay out of the repo.
+# Video would dwarf the world pages and the 1 GB Pages ceiling is already the binding constraint.
+video/
+tools/capture-video.mjs
+LOCAL.md

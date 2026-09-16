@@ -1,0 +1,38 @@
+# Publishes the checked-in static site. Worlds are baked LOCALLY (they need the
+# operator's mojulo DB, which never leaves the host) and committed; CI only uploads.
+name: Deploy to GitHub Pages
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce the 1 GB published-site ceiling
+        run: |
+          BYTES=$(du -sb --exclude=.git --exclude=.github . | cut -f1)
+          echo "site bytes: $BYTES ($((BYTES/1048576)) MB of 1024 MB)"
+          if [ "$BYTES" -gt 1073741824 ]; then
+            echo "::error::site exceeds the 1 GB GitHub Pages limit"; exit 1
+          fi
+          if [ "$BYTES" -gt 858993459 ]; then echo "::warning::over 80% of the 1 GB ceiling"; fi
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Verify every page shares as a preview card
+        run: node tools/check-cards.mjs
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: . }
+      - id: deployment
+        uses: actions/deploy-pages@v4
