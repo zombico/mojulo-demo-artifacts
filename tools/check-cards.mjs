@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * check-cards.mjs — verify every published page previews as a card, not a bare URL.
- * Static check: the tags a crawler needs, present, absolute, and backed by a real file.
+ * check-cards.mjs — verify every published page keeps the promises it makes statically:
+ * the tags a crawler needs (present, absolute, backed by a real file), and the model
+ * downloads the page offers (present, non-empty, the size the catalog advertises).
+ * A download bar pointing at a 404 is the same class of failure as a bare-URL share.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,9 +45,26 @@ for (const { label, file, w } of pages) {
   const headEnd = html.indexOf('</head>');
   if (headEnd > HEAD_BUDGET) errs.push(`</head> at ${(headEnd / 1024).toFixed(0)} KB — past the ${HEAD_BUDGET / 1024} KB crawler window`);
 
+  // Every download the catalog advertises must exist, be non-empty, match the advertised
+  // size (the page prints it on the button), and actually be linked from the page.
+  for (const d of (w?.downloads || [])) {
+    const onDisk = path.join(REPO, 'w', w.slug, d.file);
+    if (!fs.existsSync(onDisk)) { errs.push(`download ${d.file} has no file on disk`); continue; }
+    const size = fs.statSync(onDisk).size;
+    if (!size) errs.push(`download ${d.file} is empty`);
+    else if (size !== d.bytes) errs.push(`download ${d.file} is ${size} B but the catalog advertises ${d.bytes} B — re-publish`);
+    if (!html.includes(`href="${d.file}"`)) errs.push(`download ${d.file} is on disk but the page does not link it`);
+  }
+
   if (errs.length) { console.log(`✗ ${label}\n    ${errs.join('\n    ')}`); fail++; }
-  else console.log(`✓ ${label.padEnd(42)} "${(got.get('og:title') || '').slice(0, 38)}" · head @ ${(headEnd / 1024).toFixed(1)} KB`);
+  else {
+    const dl = (w?.downloads || []).map((d) => d.label).join('+');
+    console.log(`✓ ${label.padEnd(42)} "${(got.get('og:title') || '').slice(0, 38)}" · head @ ${(headEnd / 1024).toFixed(1)} KB${dl ? ` · ↓ ${dl}` : ''}`);
+  }
 }
 
-console.log(fail ? `\n✗ ${fail} page(s) would share as a plain URL` : `\n✓ all ${pages.length} pages carry a full preview card`);
+const dlCount = catalog.worlds.reduce((a, w) => a + (w.downloads || []).length, 0);
+console.log(fail
+  ? `\n✗ ${fail} page(s) would share as a plain URL or offer a broken download`
+  : `\n✓ all ${pages.length} pages carry a full preview card${dlCount ? ` · ${dlCount} download(s) present and linked` : ''}`);
 process.exit(fail ? 1 : 0);

@@ -95,8 +95,44 @@
       "gzip": 3540855,
       "recipeBytes": 17597,
       "bakedAt": "2026-09-16"
+    },
+    {
+      "slug": "spider-tank-v5",
+      "ref": "sk_49p4u0f407",
+      "title": "Yellow Worker Robot Spider-Tank - Rear-Tilted Flat Abdomen v5",
+      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "kind": "assembler",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/spider-tank-v5/",
+      "card": "w/spider-tank-v5/card.jpg",
+      "hero": null,
+      "downloads": [
+        {
+          "format": "glb",
+          "label": "GLB",
+          "file": "model.glb",
+          "path": "w/spider-tank-v5/model.glb",
+          "bytes": 1506528,
+          "mime": "model/gltf-binary",
+          "note": "vertex colours + named groups — opens in Blender, three.js, Windows 3D Viewer",
+          "triangles": 21474
+        },
+        {
+          "format": "stl",
+          "label": "STL",
+          "file": "model.stl",
+          "path": "w/spider-tank-v5/model.stl",
+          "bytes": 1072284,
+          "mime": "model/stl",
+          "note": "binary triangle soup for slicers — colour dropped, scaled to millimetres — prints 105 × 63 × 52 mm (derived from the manifest's units:'cm' (1 cm = 10mm))",
+          "triangles": 21444
+        }
+      ],
+      "bytes": 5041203,
+      "gzip": 313954,
+      "recipeBytes": 25223,
+      "bakedAt": "2026-09-17"
     }
   ],
-  "updatedAt": "2026-09-16T06:50:45.678Z",
+  "updatedAt": "2026-09-17T02:13:08.202Z",
   "site": "https://zombico.github.io/mojulo-demo-artifacts"
 }
