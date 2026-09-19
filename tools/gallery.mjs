@@ -23,15 +23,27 @@ const cards = catalog.worlds.map((w) => {
   const shot = (w.hero || w.card)
     ? `<img loading="lazy" src="${esc(w.hero || w.card)}" alt="">`
     : '<div class="noshot"></div>';
+  // On an exhibit the same format exists once per variant, so the button has to say which
+  // one it is; a shared file (identical across variants) stays unqualified.
+  const vlabel = (key) => (w.variants || []).find((v) => v.key === key)?.label || key;
   const dl = (w.downloads || [])
-    .map((d) => `<a href="${esc(d.path)}" download type="${esc(d.mime)}" title="${esc(d.note)}">${esc(d.label)} <i>${mb(d.bytes)}</i></a>`)
+    .map((d) => `<a href="${esc(d.path)}" download type="${esc(d.mime)}" title="${esc(d.note)}">${esc(d.label)}${d.variant ? ` \u00b7 ${esc(vlabel(d.variant))}` : ''} <i>${mb(d.bytes)}</i></a>`)
     .join('');
+  const vr = (w.variants || []).length
+    ? `<p class="vr">${w.variants.map((v) => `<b>${esc(v.label)}</b>`).join('')}<span>one model, switch in place</span></p>`
+    : '';
+  // A world with photographs has been MADE, not just modelled — worth saying on the card.
+  const ph = (w.photos || []).length
+    ? `<p class="vr"><b class="made">printed</b><span>${w.photos.length} photo${w.photos.length === 1 ? '' : 's'} of the real thing</span></p>`
+    : '';
   return `
     <div class="card">
       <a class="shot" href="w/${esc(w.slug)}/">${shot}</a>
       <div class="meta">
         <a class="ttl" href="w/${esc(w.slug)}/"><h2>${esc(w.title)}</h2></a>
         <p class="sub">${esc(w.kind)} · ${mb(w.gzip)} over the wire · recipe ${w.recipeBytes} B</p>
+        ${vr}
+        ${ph}
         ${dl ? `<p class="dl"><span>take away</span>${dl}</p>` : ''}
       </div>
     </div>`;
@@ -80,6 +92,10 @@ ${heroCard ? `<meta name="twitter:image" content="${BASE}/${heroCard}">` : ''}
   h2 { margin:0 0 5px; font-size:14.5px; font-weight:600; line-height:1.35; }
   .ttl:hover h2 { color:var(--accent); }
   .sub { margin:0; font-size:12px; color:var(--dim); }
+  .vr { margin:9px 0 0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; }
+  .vr b { font-weight:500; color:var(--fg); border:1px solid var(--line); border-radius:4px; padding:2px 7px; background:#0d1118; font-size:11.5px; }
+  .vr span { color:var(--dim); font-size:11px; }
+  .vr b.made { color:#ffb4a2; border-color:#5a3a34; background:#1c1311; }
   .dl { margin:11px 0 0; display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:12px; }
   .dl span { color:var(--dim); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; }
   .dl a { display:inline-flex; align-items:center; gap:5px; color:var(--accent); border:1px solid var(--line); border-radius:5px; padding:4px 8px; background:#0d1118; }

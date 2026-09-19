@@ -97,42 +97,196 @@
       "bakedAt": "2026-09-16"
     },
     {
-      "slug": "spider-tank-v5",
+      "slug": "spider-tank",
       "ref": "sk_49p4u0f407",
-      "title": "Yellow Worker Robot Spider-Tank - Rear-Tilted Flat Abdomen v5",
-      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "title": "Yellow Worker Robot Spider-Tank",
+      "description": "Orbit, zoom and walk this world in your browser — no install. 2 versions — Standard and Toon — one model, switchable in place.",
       "kind": "assembler",
-      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/spider-tank-v5/",
-      "card": "w/spider-tank-v5/card.jpg",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/spider-tank/",
+      "card": "w/spider-tank/card.jpg",
       "hero": null,
+      "variants": [
+        {
+          "key": "standard",
+          "label": "Standard",
+          "ref": "sk_49p4u0f407",
+          "title": "Yellow Worker Robot Spider-Tank - Rear-Tilted Flat Abdomen v5"
+        },
+        {
+          "key": "toon",
+          "label": "Toon",
+          "ref": "sk_hd9a344kqz",
+          "title": "Yellow Worker Robot Spider-Tank — toon copy"
+        }
+      ],
       "downloads": [
         {
           "format": "glb",
           "label": "GLB",
-          "file": "model.glb",
-          "path": "w/spider-tank-v5/model.glb",
+          "file": "model-standard.glb",
+          "path": "w/spider-tank/model-standard.glb",
           "bytes": 1506528,
           "mime": "model/gltf-binary",
-          "note": "vertex colours + named groups — opens in Blender, three.js, Windows 3D Viewer",
-          "triangles": 21474
+          "triangles": 21474,
+          "variant": "standard",
+          "note": "vertex colours + named groups — opens in Blender, three.js, Windows 3D Viewer"
+        },
+        {
+          "format": "glb",
+          "label": "GLB",
+          "file": "model-toon.glb",
+          "path": "w/spider-tank/model-toon.glb",
+          "bytes": 1506528,
+          "mime": "model/gltf-binary",
+          "triangles": 21474,
+          "variant": "toon",
+          "note": "vertex colours + named groups — opens in Blender, three.js, Windows 3D Viewer"
         },
         {
           "format": "stl",
           "label": "STL",
           "file": "model.stl",
-          "path": "w/spider-tank-v5/model.stl",
+          "path": "w/spider-tank/model.stl",
           "bytes": 1072284,
           "mime": "model/stl",
-          "note": "binary triangle soup for slicers — colour dropped, scaled to millimetres — prints 105 × 63 × 52 mm (derived from the manifest's units:'cm' (1 cm = 10mm))",
-          "triangles": 21444
+          "triangles": 21444,
+          "note": "binary triangle soup for slicers — colour dropped, scaled to millimetres — prints 105 × 63 × 52 mm (derived from the manifest's units:'cm' (1 cm = 10mm)) — identical for every variant (geometry is shared)"
         }
       ],
-      "bytes": 5041203,
-      "gzip": 313954,
-      "recipeBytes": 25223,
-      "bakedAt": "2026-09-17"
+      "bytes": 10145743,
+      "gzip": 563575,
+      "recipeBytes": 50442,
+      "bakedAt": "2026-09-18"
+    },
+    {
+      "slug": "sponge-basket",
+      "ref": "sk_jzi98fy7fp",
+      "title": "Draining sponge basket",
+      "description": "Orbit, zoom and walk this world in your browser — no install.",
+      "kind": "workbench",
+      "url": "https://zombico.github.io/mojulo-demo-artifacts/w/sponge-basket/",
+      "card": null,
+      "hero": "w/sponge-basket/hero.jpg",
+      "downloads": [
+        {
+          "format": "glb",
+          "label": "GLB",
+          "file": "model.glb",
+          "path": "w/sponge-basket/model.glb",
+          "bytes": 245308,
+          "mime": "model/gltf-binary",
+          "triangles": 3850,
+          "note": "vertex colours + named groups — opens in Blender, three.js, Windows 3D Viewer"
+        },
+        {
+          "format": "stl",
+          "label": "STL",
+          "file": "model.stl",
+          "path": "w/sponge-basket/model.stl",
+          "bytes": 185684,
+          "mime": "model/stl",
+          "triangles": 3712,
+          "note": "binary triangle soup for slicers — colour dropped, scaled to millimetres — prints 229 × 63 × 64 mm (derived from the manifest's units:'mm' (1 mm = 1mm))"
+        }
+      ],
+      "photos": [
+        {
+          "file": "photos/01.jpg",
+          "thumb": "photos/01-t.jpg",
+          "path": "w/sponge-basket/photos/01.jpg",
+          "thumbPath": "w/sponge-basket/photos/01-t.jpg",
+          "bytes": 261286,
+          "thumbBytes": 24339,
+          "width": 1600,
+          "height": 2133,
+          "thumbWidth": 480,
+          "thumbHeight": 640,
+          "source": "IMG_1468.JPG",
+          "caption": "On the printer bed, just getting started",
+          "sourcePixels": "5712×4284"
+        },
+        {
+          "file": "photos/02.jpg",
+          "thumb": "photos/02-t.jpg",
+          "path": "w/sponge-basket/photos/02.jpg",
+          "thumbPath": "w/sponge-basket/photos/02-t.jpg",
+          "bytes": 464648,
+          "thumbBytes": 50751,
+          "width": 1600,
+          "height": 2133,
+          "thumbWidth": 480,
+          "thumbHeight": 640,
+          "source": "IMG_1471.JPG",
+          "caption": "The draining lattice, close up",
+          "sourcePixels": "5712×4284"
+        },
+        {
+          "file": "photos/03.jpg",
+          "thumb": "photos/03-t.jpg",
+          "path": "w/sponge-basket/photos/03.jpg",
+          "thumbPath": "w/sponge-basket/photos/03-t.jpg",
+          "bytes": 191147,
+          "thumbBytes": 26974,
+          "width": 1600,
+          "height": 1200,
+          "thumbWidth": 480,
+          "thumbHeight": 360,
+          "source": "IMG_1472.JPG",
+          "caption": "Off the bed — 9 × 2.5 × 2.5 in as printed",
+          "sourcePixels": "5712×4284"
+        },
+        {
+          "file": "photos/04.jpg",
+          "thumb": "photos/04-t.jpg",
+          "path": "w/sponge-basket/photos/04.jpg",
+          "thumbPath": "w/sponge-basket/photos/04-t.jpg",
+          "bytes": 203818,
+          "thumbBytes": 22875,
+          "width": 1600,
+          "height": 1200,
+          "thumbWidth": 480,
+          "thumbHeight": 360,
+          "source": "IMG_1470.JPG",
+          "caption": "Sitting at the back of the sink",
+          "sourcePixels": "5712×4284"
+        },
+        {
+          "file": "photos/05.jpg",
+          "thumb": "photos/05-t.jpg",
+          "path": "w/sponge-basket/photos/05.jpg",
+          "thumbPath": "w/sponge-basket/photos/05-t.jpg",
+          "bytes": 220458,
+          "thumbBytes": 24733,
+          "width": 1600,
+          "height": 1200,
+          "thumbWidth": 480,
+          "thumbHeight": 360,
+          "source": "IMG_1473.JPG",
+          "caption": "Loaded, daylight",
+          "sourcePixels": "5712×4284"
+        },
+        {
+          "file": "photos/06.jpg",
+          "thumb": "photos/06-t.jpg",
+          "path": "w/sponge-basket/photos/06.jpg",
+          "thumbPath": "w/sponge-basket/photos/06-t.jpg",
+          "bytes": 227615,
+          "thumbBytes": 25141,
+          "width": 1600,
+          "height": 1200,
+          "thumbWidth": 480,
+          "thumbHeight": 360,
+          "source": "IMG_1474.JPG",
+          "caption": "In use by the tap",
+          "sourcePixels": "5712×4284"
+        }
+      ],
+      "bytes": 3037675,
+      "gzip": 48347,
+      "recipeBytes": 6341,
+      "bakedAt": "2026-09-19"
     }
   ],
-  "updatedAt": "2026-09-17T02:13:08.202Z",
+  "updatedAt": "2026-09-19T03:08:04.493Z",
   "site": "https://zombico.github.io/mojulo-demo-artifacts"
 }

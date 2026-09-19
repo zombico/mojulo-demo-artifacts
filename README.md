@@ -33,8 +33,9 @@ CI runs that check and refuses to deploy if any page would share as a plain URL.
 
 ## Hero renders (Blender Cycles)
 
-A page's card can be a path-traced still instead of a WebGL screenshot. Unlike video, this
-asset **is** committed — it becomes the `og:image` and the gallery thumbnail.
+A page's card can be a path-traced still instead of a WebGL screenshot (or a photograph —
+see **Photographs** below, which writes the same `hero.jpg` with no Blender involved). Unlike
+video, this asset **is** committed — it becomes the `og:image` and the gallery thumbnail.
 
 ```bash
 node tools/render-hero.mjs <slug|ref> [--samples 192] [--res 1200x630] \
@@ -85,6 +86,23 @@ scale — the spider-tank declares `cm`, becomes ×10, and prints at 105 × 63 �
 button's tooltip states the printed size, because a silently mis-scaled STL is the failure
 people only discover at the printer.
 
+On an exhibit, each format is exported once per variant and compared. Variants that differ
+get a file each (`model-<variant>.<ext>`); variants that produce **identical bytes** collapse
+to a single shared `model.<ext>`. That is honesty, not a size optimisation: the toon variant
+re-bakes colour only, so its STL — which carries geometry and drops colour — is byte-identical
+to the standard one, and shipping it twice under two names would claim a difference that does
+not exist. The two GLBs *do* differ, because GLB carries the vertex colours.
+
+The comparison runs with one shared `generator` string, because that string is provenance and
+embeds the sketch ref — exporting each variant under its own name would make two identical
+meshes hash differently and defeat the dedupe entirely. Files that really do differ are then
+re-exported under their own ref, so each one still says which sketch it came from.
+
+The download bar shows the file matching the variant on screen: switching to Toon swaps the
+GLB link, while the shared STL stays put. Both links are always in the markup — CSS does the
+hiding — so they stay discoverable and `check-cards.mjs` can still verify every advertised
+file is really linked.
+
 Two things to know:
 
 - **Downloads are committed assets and count against the 1 GB ceiling.** A GLB + STL pair
@@ -99,13 +117,87 @@ Two things to know:
 be non-empty, match the size on the button, and be linked from the page. CI refuses to
 deploy a page whose download bar points at a 404.
 
+## Exhibits — several versions of one model
+
+`--consolidate` publishes several sketches as **one** world page with a variant toggle,
+instead of one page each:
+
+```bash
+node tools/publish.mjs sk_49p4u0f407 sk_hd9a344kqz --consolidate \
+     --slug spider-tank --labels Standard,Toon --title "Yellow Worker Robot Spider-Tank"
+```
+
+This is only sound when the variants differ in **colour, not shape**, so `fuseVariants`
+asserts it: every render group's position buffer must be byte-identical across the bakes.
+A variant that moved a vertex is refused with a message telling you to publish it
+separately — the toggle would otherwise silently show the wrong geometry.
+
+What that buys, measured on the spider-tank pair:
+
+| | on disk | over the wire |
+|---|---|---|
+| two separate pages | 6.92 MB | 0.30 + 0.50 MB, one per visit |
+| one fused exhibit | **5.75 MB** | **0.54 MB**, both variants |
+
+Switching is instant and reloads nothing: the geometry is uploaded to the GPU once, and the
+toggle only swaps the colour attribute and flips the toon ink on or off.
+
+How the fusion works, and the two things it leans on:
+
+- **The host bake is whichever variant carries toon ink.** The ink buffers (inverted hull +
+  crease lines) exist only in that bake and cannot be synthesised from the other, so the
+  toon bake hosts and the standard one contributes just its colours.
+- **The default variant ships no colour payload.** The host's `GROUPS` are rewritten to the
+  default's colours, so the first paint is already correct and the toggle snapshots those
+  live buffers on load. Skipping that duplicate colour set saves 1.1 MB here.
+- Two seams into mojulo's emitted page, both asserted at bake time rather than assumed:
+  `meshes[grp.name]` (re-exposed on `window` so the toggle can reach the colour attribute)
+  and `window.__mojInk.set()`, which the emitter already exposes for exactly this purpose.
+  If the emitter changes shape, the publish fails loudly instead of emitting a dead toggle.
+
+**Downloads follow the variants.** A format is exported once per variant and the *results*
+decide the filenames — see below.
+
+## Photographs — proof the thing got made
+
+Some recipes describe objects that exist. `--photos` puts pictures of the real one under the
+viewer, and `--hero-from` makes the share card out of a photograph instead of a render:
+
+```bash
+node tools/publish.mjs sk_jzi98fy7fp --slug sponge-basket --downloads glb,stl \
+     --photos "shot1.JPG,shot2.JPG,shot3.JPG" \
+     --captions "On the bed|Close up|In use" \
+     --hero-from shot2.JPG
+```
+
+A comma list keeps the order you give, which is how a sequence is authored (on the bed →
+detail → in use); a directory is taken in name order. Each photo is written twice — a 480 px
+thumbnail for the strip and a 1600 px frame for the lightbox — so the page costs a few hundred
+KB up front instead of the whole set. Six photos here come to 1.7 MB from 25 MB of originals.
+
+**Stripping EXIF is a privacy requirement, not an optimisation.** Phone photos carry a GPS
+fix, and pictures of a finished print are usually taken at home: every one of the six here
+had the photographer's coordinates to within a few metres. Publishing the originals would
+have put a home address on a public site inside every downloadable image. `sharp` copies no
+metadata unless asked, so re-encoding drops GPS, camera body and timestamps — and `.rotate()`
+bakes the orientation into the pixels first, so dropping that tag cannot turn a photo
+sideways. The publish then **re-reads what it wrote** and refuses to continue if anything
+survived, and `check-cards.mjs` independently scans every shipped JPEG for an `Exif` segment,
+so a stray original cannot reach the site through a later hand-edit.
+
+`--hero-from` reuses the existing hero mechanism, so the photo becomes `og:image` and the
+gallery thumbnail. For an object that exists in the world, a picture of the real one is a
+better share card than any render of it — and unlike a Cycles hero, it needs no Blender.
+
 ## Publishing
 
 Worlds are baked **locally** — resolving one needs the operator's sketches DB and the graph
 library, neither of which ever leaves the host. CI only uploads what was committed.
 
 ```bash
-node tools/publish.mjs <sketch-ref> [<sketch-ref>...] [--slug name] [--base url] [--no-card] [--downloads glb,stl]
+node tools/publish.mjs <sketch-ref> [<sketch-ref>...] [--slug name] [--base url] [--no-card]
+                       [--downloads glb,stl] [--consolidate [--labels A,B] [--title t]]
+                       [--photos a.jpg,b.jpg | dir] [--captions "a|b"] [--hero-from p.jpg]
 node tools/gallery.mjs     # regenerate index.html from catalog.json
 node tools/budget.mjs      # audit against the Pages ceilings
 git add -A && git commit -m "publish: <slug>" && git push
@@ -127,7 +219,10 @@ Measured, not estimated, on this machine:
 | walker (`sk_diaz_unit_v1`) | 2.2 KB | 2.31 MB | **0.75 MB** | 1.1 s |
 | walker (`sk_gframe_mk2`) | 2.2 KB | 2.79 MB | **0.88 MB** | 2.5 s |
 | spider-tank (`sk_49p4u0f407`) | 25 KB | 2.32 MB | **0.31 MB** | 22 s |
-| — the same, with GLB + STL | | 4.81 MB | **0.31 MB** | |
+| — as a 2-variant exhibit | 49 KB | 5.75 MB | **0.54 MB** | 21 s |
+| — the same, with GLB×2 + STL | | 9.68 MB | **0.54 MB** | |
+| sponge basket (`sk_jzi98fy7fp`) | 6.3 KB | 0.74 MB | **0.05 MB** | 3 s |
+| — with GLB + STL + 6 photos | | 2.90 MB | **0.05 MB** | |
 | arena (`snow-valley-arena`) | 3.6 MB | 24.90 MB | **8.05 MB** | 75 s |
 
 The recipe is tiny; the *baked page* is not. 74–88% of every page is base64-encoded geometry,
@@ -192,6 +287,8 @@ index.html         gallery (generated by tools/gallery.mjs)
 catalog.json       one entry per world — slug, ref, sizes, thumbnail
 w/<slug>/          index.html + card.jpg (1200×630 social card)
                    + model.glb / model.stl when published --downloads
+                   (model-<variant>.<ext> where an exhibit's variants differ)
+                   + photos/NN.jpg + NN-t.jpg when published --photos
 tools/             publish · gallery · budget · check-cards
 .github/workflows  deploy, with a hard 1 GB gate before upload
 ```

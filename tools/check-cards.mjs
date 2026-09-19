@@ -56,15 +56,33 @@ for (const { label, file, w } of pages) {
     if (!html.includes(`href="${d.file}"`)) errs.push(`download ${d.file} is on disk but the page does not link it`);
   }
 
+  // Every photograph must exist, be linked, and — because these are usually phone pictures
+  // of somewhere real — carry no EXIF. A JPEG with no APP1/Exif segment cannot hold a GPS fix.
+  for (const ph of (w?.photos || [])) {
+    for (const rel of [ph.file, ph.thumb]) {
+      const onDisk = path.join(REPO, 'w', w.slug, rel);
+      if (!fs.existsSync(onDisk)) { errs.push(`photo ${rel} has no file on disk`); continue; }
+      if (!fs.statSync(onDisk).size) errs.push(`photo ${rel} is empty`);
+      const head = fs.readFileSync(onDisk).subarray(0, 65536);
+      if (head.includes(Buffer.from('Exif\0\0', 'binary')) || head.includes(Buffer.from('GPS', 'ascii'))) {
+        errs.push(`photo ${rel} still carries EXIF metadata — re-publish, do not ship location data`);
+      }
+    }
+    if (!html.includes(`"${ph.thumb}"`)) errs.push(`photo ${ph.thumb} is on disk but the page does not show it`);
+  }
+
   if (errs.length) { console.log(`✗ ${label}\n    ${errs.join('\n    ')}`); fail++; }
   else {
-    const dl = (w?.downloads || []).map((d) => d.label).join('+');
-    console.log(`✓ ${label.padEnd(42)} "${(got.get('og:title') || '').slice(0, 38)}" · head @ ${(headEnd / 1024).toFixed(1)} KB${dl ? ` · ↓ ${dl}` : ''}`);
+    const vlabel = (key) => (w?.variants || []).find((v) => v.key === key)?.label || key;
+    const dl = (w?.downloads || []).map((d) => d.label + (d.variant ? `\u00b7${vlabel(d.variant)}` : '')).join(' ');
+    const ph = (w?.photos || []).length;
+    console.log(`✓ ${label.padEnd(42)} "${(got.get('og:title') || '').slice(0, 38)}" · head @ ${(headEnd / 1024).toFixed(1)} KB${dl ? ` · ↓ ${dl}` : ''}${ph ? ` · ${ph} photos` : ''}`);
   }
 }
 
 const dlCount = catalog.worlds.reduce((a, w) => a + (w.downloads || []).length, 0);
+const phCount = catalog.worlds.reduce((a, w) => a + (w.photos || []).length, 0);
 console.log(fail
   ? `\n✗ ${fail} page(s) would share as a plain URL or offer a broken download`
-  : `\n✓ all ${pages.length} pages carry a full preview card${dlCount ? ` · ${dlCount} download(s) present and linked` : ''}`);
+  : `\n✓ all ${pages.length} pages carry a full preview card${dlCount ? ` · ${dlCount} download(s) present and linked` : ''}${phCount ? ` · ${phCount} photo(s) clean of EXIF` : ''}`);
 process.exit(fail ? 1 : 0);
