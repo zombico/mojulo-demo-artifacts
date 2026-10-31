@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XR voice test v5 — chat box and keyboard IN VR (3D, not DOM)</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0e1014; color: #fff; margin: 0; padding: 24px; }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  p, li { font-size: 19px; line-height: 1.5; }
+  #status { font-size: 23px; font-weight: 700; background: #1b2740; border: 2px solid #9cc4ff; padding: 16px; margin: 16px 0; white-space: pre-wrap; word-break: break-word; min-height: 3em; }
+  #log { font-size: 17px; background: #111; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; }
+  button { font-size: 24px; padding: 16px 22px; cursor: pointer; background: #ffb020; color: #111; border: 0; border-radius: 10px; margin: 0 12px 12px 0; }
+  button.green { background: #5bd16a; }
+  button:disabled { background: #4a453c; color: #8a8273; cursor: default; }
+  input { font: inherit; font-size: 19px; padding: 10px; border-radius: 8px; border: 1px solid #4a453c; background: #0d0c09; color: #ece6da; flex: 1 1 260px; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #flat-wrap canvas { width: 100% !important; height: 300px !important; display: block; background: #222; }
+</style>
+</head>
+<body>
+<h1>XR test v5 — chat box and keyboard IN VR</h1>
+<p><b>TEST PAGE ONLY — not Maison3D yet.</b> Short answer to the DOM question: a normal HTML chat box + the Quest system keyboard <b>cannot</b> appear inside an immersive-vr session. DOM overlay is an AR-only feature in the spec, and Meta does not implement it for VR. That is why v4's overlay never showed up in VR, even though flat dictation worked.</p>
+<p>So v5 does it the only way that works in VR: the chat box and keyboard are <b>built in 3D, inside the scene itself</b>. No DOM, no system keyboard, no SpeechRecognition API needed. In VR, point a controller ray at a key and pull the trigger to type, then hit SEND. The typed text appears on the 3D panel above the keyboard, and SEND runs the same command parser as v4.</p>
+<p><b>Open directly in the native Meta Browser on the Quest.</b> Flat page still works the same as v4: Dictate (keyboard mic) or type, Send, then ENTER VR — that change should already be in the room. In VR, look ahead: the keyboard is in front of you, about 1.4 m away, with the panel above it.</p>
+<p>In VR, try typing with the ray: S O F A space R E D, then SEND. Or tap a quick button: SOFA RED, CUBE BLUE, TABLE BIG, SPIN CUBE.</p>
+<div id="status">Loading checks…</div>
+<div>
+  <button id="btn-vr">ENTER VR — three.js room + 3D keyboard</button>
+  <button id="btn-talk" class="green">Hold to talk</button>
+  <button id="btn-dictate" class="green">Dictate (keyboard mic, flat)</button>
+</div>
+<div class="bar" id="vr-command">
+  <form id="typed" class="bar" style="flex:1">
+    <input id="text" placeholder="Flat: tap here, keyboard mic, dictate, e.g. make the sofa red" autocomplete="off">
+    <button class="green" type="submit">Send</button>
+  </form>
+</div>
+<div id="flat-wrap"></div>
+<h2>Log (newest last)</h2>
+<pre id="log"></pre>
+<script>
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+function log(t) { const line = new Date().toLocaleTimeString() + '  ' + t; logEl.textContent += line + '\n'; logEl.scrollTop = logEl.scrollHeight; console.log(line); }
+function setStatus(t) { statusEl.textContent = t; log(t); }
+window.__v5 = { log, setStatus };
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+async function checkSupport() {
+  let vr = '?';
+  if (navigator && navigator.xr && navigator.xr.isSessionSupported) { try { vr = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e) { vr = 'error:' + e.message; } }
+  setStatus('Checks: secure=' + window.isSecureContext + ', top=' + (window.top === window.self)
+    + '\nSpeech recognition=' + (SR ? 'YES' : 'NO — expected in Quest Browser, use Dictate or the 3D keyboard instead')
+    + ', speech synthesis=' + (window.speechSynthesis ? 'YES' : 'NO')
+    + '\nimmersive-vr supported=' + vr
+    + '\nDOM overlay in VR: NOT expected — it is AR-only in the spec and Meta does not implement it for VR. That is why v5 uses a 3D keyboard instead.');
+  const talkBtn = document.getElementById('btn-talk');
+  if (!SR) { talkBtn.disabled = true; talkBtn.textContent = 'No speech recognition here'; }
+}
+checkSupport();
+</script>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+const log = window.__v5.log, setStatus = window.__v5.setStatus;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let renderer = null, scene = null, camera = null, session = null;
+const parts = {};
+const spinning = new Set();
+let typed = '', lastMsg = 'Type with the 3D keyboard, then SEND.';
+let cmdCanvas, cmdTexture, cmdMesh;
+let keyMeshes = [], presetMeshes = [];
+function box(w, h, d, color, x, y, z, name) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color }));
+  m.position.set(x, y, z); scene.add(m);
+  if (name) parts[name] = { mesh: m, base: 1 };
+  return m;
+}
+function labelTexture(text, fg = '#ffffff', bg = '#2d3748') {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const ctx = c.getContext('2d'); ctx.fillStyle = bg; ctx.fillRect(0, 0, 256, 128);
+  ctx.fillStyle = fg; ctx.font = 'bold 56px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 68);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function drawCmdPanel() {
+  if (!cmdCanvas) return;
+  const ctx = cmdCanvas.getContext('2d'); const W = cmdCanvas.width, H = cmdCanvas.height;
+  ctx.clearRect(0, 0, W, H); ctx.fillStyle = 'rgba(21,19,15,0.92)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#ece6da'; ctx.font = 'bold 44px system-ui, sans-serif'; ctx.fillText('Type: ' + (typed || '(empty)'), 30, 70);
+  ctx.fillStyle = '#b9b1a3'; ctx.font = '36px system-ui, sans-serif';
+  const words = String(lastMsg).split(/\s+/); let line = '', y = 140;
+  for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > W - 60 && line) { ctx.fillText(line, 30, y); y += 44; line = w; } else line = t; }
+  if (line) ctx.fillText(line, 30, y);
+  cmdTexture.needsUpdate = true;
+}
+function makeKey(label, action, x, y, z, w = 0.11) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.09, 0.02),
+    new THREE.MeshBasicMaterial({ map: labelTexture(label) }));
+  m.position.set(x, y, z); m.userData = { label, action }; scene.add(m); keyMeshes.push(m); return m;
+}
+function buildRoom() {
+  if (renderer) return;
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, 300);
+  renderer.xr.enabled = true;
+  renderer.xr.setReferenceSpaceType('local-floor');
+  document.getElementById('flat-wrap').appendChild(renderer.domElement);
+  scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a202c);
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth / 300, 0.1, 50);
+  camera.position.set(0, 1.6, 2.2); camera.lookAt(0, 1, -1);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(2, 4, 2); scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 5), new THREE.MeshStandardMaterial({ color: 0x8a7a5a }));
+  floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  box(6, 3, 0.1, 0x4a5568, 0, 1.5, -2.5, 'wall');
+  box(0.1, 3, 5, 0x334155, -3, 1.5, 0, null);
+  box(0.1, 3, 5, 0x334155, 3, 1.5, 0, null);
+  box(1.8, 0.5, 0.8, 0x2dd4bf, -1.5, 0.25, 0.5, 'sofa');
+  box(1.8, 0.4, 0.8, 0x14b8a6, -1.5, 0.7, 0.5, null);
+  box(1.2, 0.08, 0.7, 0x92400e, 0, 0.75, -1, 'table');
+  box(0.08, 0.75, 0.08, 0x78350f, -0.5, 0.37, -1.25, null);
+  box(0.08, 0.75, 0.08, 0x78350f, 0.5, 0.37, -1.25, null);
+  box(0.08, 0.75, 0.08, 0x78350f, -0.5, 0.37, -0.75, null);
+  box(0.08, 0.75, 0.08, 0x78350f, 0.5, 0.37, -0.75, null);
+  box(0.4, 0.4, 0.4, 0xef4444, 1.2, 0.2, 0, 'cube');
+  box(0.25, 1.4, 0.25, 0xf59e0b, 2.2, 0.7, -2, 'lamp');
+  // 3D command panel, fixed in front of the starting position, facing the user
+  cmdCanvas = document.createElement('canvas'); cmdCanvas.width = 1024; cmdCanvas.height = 256;
+  cmdTexture = new THREE.CanvasTexture(cmdCanvas); cmdTexture.colorSpace = THREE.SRGBColorSpace;
+  cmdMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.38), new THREE.MeshBasicMaterial({ map: cmdTexture, transparent: false }));
+  cmdMesh.position.set(0, 1.55, -1.4); scene.add(cmdMesh); drawCmdPanel();
+  // quick preset buttons, above the keyboard
+  const presets = [['SOFA RED', 'make the sofa red'], ['CUBE BLUE', 'make the cube blue'], ['TABLE BIG', 'make the table bigger'], ['SPIN CUBE', 'spin the cube']];
+  presets.forEach((p, i) => {
+    const m = makeKey(p[0], { type: 'preset', text: p[1] }, -0.55 + i * 0.37, 1.22, -1.4, 0.33);
+    presetMeshes.push(m);
+  });
+  // QWERTY keyboard, centred at x=0, in front of the user
+  const rows = [['Q','W','E','R','T','Y','U','I','O','P'], ['A','S','D','F','G','H','J','K','L'], ['Z','X','C','V','B','N','M']];
+  rows.forEach((row, ri) => {
+    const y = 1.02 - ri * 0.11;
+    const totalW = row.length * 0.125;
+    row.forEach((ch, ci) => {
+      const x = -totalW / 2 + 0.0625 + ci * 0.125;
+      makeKey(ch, { type: 'char', char: ch.toLowerCase() }, x, y, -1.4);
+    });
+  });
+  // backspace on row 3, right side
+  makeKey('<-', { type: 'back' }, 0.62, 0.80, -1.4, 0.16);
+  // bottom row: space, send, clear
+  makeKey('SPACE', { type: 'space' }, -0.25, 0.69, -1.4, 0.45);
+  makeKey('SEND', { type: 'send' }, 0.22, 0.69, -1.4, 0.22);
+  makeKey('CLR', { type: 'clear' }, 0.48, 0.69, -1.4, 0.16);
+  // controllers with ray lines
+  [0, 1].forEach((i) => {
+    const c = renderer.xr.getController(i);
+    c.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -4)]),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })));
+    c.addEventListener('selectstart', () => pressAtController(c));
+    scene.add(c);
+  });
+  const ray = new THREE.Raycaster();
+  renderer.setAnimationLoop(() => {
+    if (session) {
+      // hover highlight from each controller
+      for (const ci of [0, 1]) {
+        const c = renderer.xr.getController(ci);
+        try { ray.setFromXRController(c); } catch (e) { continue; }
+        const hits = ray.intersectObjects(keyMeshes, false);
+        for (const k of keyMeshes) k.scale.setScalar(1);
+        if (hits.length) hits[0].object.scale.setScalar(1.15);
+      }
+    }
+    for (const name of spinning) { const p = parts[name]; if (p) p.mesh.rotation.y += 0.02; }
+    renderer.render(scene, camera);
+  });
+  log('v5: room + 3D keyboard built.');
+}
+function pressAtController(controller) {
+  const ray = new THREE.Raycaster();
+  try { ray.setFromXRController(controller); } catch (e) { log('raycast failed: ' + e.message); return; }
+  const hits = ray.intersectObjects(keyMeshes, false);
+  if (!hits.length) { log('trigger pressed, but no key hit — point the ray at a key first.'); return; }
+  const key = hits[0].object; pressKey(key.userData);
+}
+function pressKey(a) {
+  if (a.type === 'char') typed += a.char;
+  else if (a.type === 'space') typed += ' ';
+  else if (a.type === 'back') typed = typed.slice(0, -1);
+  else if (a.type === 'clear') typed = '';
+  else if (a.type === 'preset') { handleCommand(a.text); typed = ''; drawCmdPanel(); return; }
+  else if (a.type === 'send') { const t = typed; typed = ''; if (t.trim()) handleCommand(t); else { lastMsg = 'Nothing typed yet.'; drawCmdPanel(); } return; }
+  lastMsg = 'Typing… press SEND when done.'; drawCmdPanel(); log('3D key: ' + a.label + ' -> typed="' + typed + '"');
+}
+function speak(text) {
+  if (window.speechSynthesis) { try { window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance(text)); } catch (e) {} }
+}
+const COLORS = { red: 0xef4444, blue: 0x3b82f6, green: 0x22c55e, yellow: 0xeab308, teal: 0x2dd4bf, orange: 0xf97316, purple: 0xa855f7, pink: 0xec4899, white: 0xffffff, black: 0x111111, brown: 0x92400e, gold: 0xf59e0b, grey: 0x9ca3af, gray: 0x9ca3af };
+const TARGETS = { sofa: 'sofa', couch: 'sofa', table: 'table', cube: 'cube', box: 'cube', lamp: 'lamp', light: 'lamp', wall: 'wall' };
+function handleCommand(raw) {
+  const text = String(raw).toLowerCase().trim(); if (!text) return;
+  log('COMMAND: "' + text + '"');
+  let target = null; for (const k of Object.keys(TARGETS)) if (text.includes(k)) { target = TARGETS[k]; break; }
+  if (!target) { lastMsg = 'Did not hear sofa, table, cube, or lamp. Try: make the sofa red.'; drawCmdPanel(); setStatus(lastMsg); speak(lastMsg); return; }
+  const p = parts[target]; if (!p) return;
+  let msg = '';
+  const colorName = Object.keys(COLORS).find((c) => text.includes(c));
+  if (colorName) { p.mesh.material.color.setHex(COLORS[colorName]); msg = 'The ' + target + ' is now ' + colorName + '.'; }
+  else if (text.includes('bigger') || text.includes('larger')) { p.base = Math.min(p.base * 1.25, 2); p.mesh.scale.setScalar(p.base); msg = 'The ' + target + ' is bigger now.'; }
+  else if (text.includes('smaller')) { p.base = Math.max(p.base * 0.8, 0.4); p.mesh.scale.setScalar(p.base); msg = 'The ' + target + ' is smaller now.'; }
+  else if (text.includes('spin')) { if (text.includes('stop')) { spinning.delete(target); msg = 'The ' + target + ' stopped spinning.'; } else { spinning.add(target); msg = 'The ' + target + ' is spinning.'; } }
+  else if (text.includes('hide')) { p.mesh.visible = false; msg = 'The ' + target + ' is hidden.'; }
+  else if (text.includes('show')) { p.mesh.visible = true; msg = 'The ' + target + ' is back.'; }
+  else if (text.includes('left')) { p.mesh.position.x -= 0.3; msg = 'Moved the ' + target + ' left.'; }
+  else if (text.includes('right')) { p.mesh.position.x += 0.3; msg = 'Moved the ' + target + ' right.'; }
+  else if (text.includes('forward') || text.includes('closer')) { p.mesh.position.z -= 0.3; msg = 'Moved the ' + target + ' forward.'; }
+  else if (text.includes('back')) { p.mesh.position.z += 0.3; msg = 'Moved the ' + target + ' back.'; }
+  else msg = 'Heard ' + target + ', but not what to do. Try: make the ' + target + ' red.';
+  lastMsg = msg; drawCmdPanel(); setStatus('COMMAND: "' + text + '"\n' + msg); speak(msg); log('ACTION: ' + msg);
+}
+// flat: hold-to-talk (only if SR exists, otherwise disabled) + dictate + typed
+let rec = null, recText = '';
+function startTalking() {
+  if (!SR || rec) return;
+  try {
+    rec = new SR(); rec.lang = 'en-US'; rec.interimResults = false;
+    rec.onresult = (e) => { recText = e.results[0][0].transcript; };
+    rec.onerror = (e) => { log('speech error: ' + e.error); };
+    rec.onend = () => { const t = recText; rec = null; recText = ''; if (t) handleCommand(t); };
+    rec.start(); log('listening…');
+  } catch (e) { rec = null; }
+}
+function stopTalking() { if (rec) { try { rec.stop(); } catch (e) {} } }
+const talkBtn = document.getElementById('btn-talk');
+talkBtn.addEventListener('pointerdown', () => { buildRoom(); startTalking(); });
+for (const ev of ['pointerup', 'pointerleave']) talkBtn.addEventListener(ev, stopTalking);
+document.getElementById('btn-dictate').addEventListener('click', () => { buildRoom(); document.getElementById('text').focus(); setStatus('Dictate: Quest keyboard should appear. Tap its mic, dictate, then Send.'); });
+document.getElementById('typed').addEventListener('submit', (e) => {
+  e.preventDefault(); const el = document.getElementById('text'); const t = el.value.trim(); el.value = '';
+  if (!t) return; buildRoom(); handleCommand(t); log('Flat command applied to the same scene — it will be visible in VR too, if you do not reload the page.');
+});
+document.getElementById('btn-vr').addEventListener('click', async () => {
+  try { buildRoom(); } catch (e) { setStatus('FAILED building room: ' + e.name + ': ' + e.message); return; }
+  setStatus('Requesting immersive-vr (v3 pattern, no DOM overlay — it does not work in VR) …');
+  try { session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] }); }
+  catch (e) { setStatus('FAILED VR: ' + e.name + ': ' + e.message); return; }
+  log('VR enabledFeatures: ' + JSON.stringify(session.enabledFeatures ?? 'not reported'));
+  session.addEventListener('end', () => { session = null; setStatus('VR session ended.'); });
+  try {
+    await renderer.xr.setSession(session);
+    setStatus('SUCCESS: IN IMMERSIVE NOW. Look ahead for the 3D keyboard and panel. Point a controller ray at a key, pull the trigger to type, then SEND.');
+    lastMsg = 'In VR. Point at a key, trigger to type, SEND to run it.'; drawCmdPanel();
+  } catch (e) { setStatus('setSession FAILED: ' + e.name + ': ' + e.message); }
+});
+</script>
+</body>
+</html>
