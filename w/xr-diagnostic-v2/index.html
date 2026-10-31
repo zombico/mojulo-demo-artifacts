@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mojulo XR diagnostic v2 — with a real WebGL scene</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0e1014; color: #fff; margin: 0; padding: 24px; }
+  h1 { font-size: 26px; margin: 0 0 12px; }
+  p { font-size: 19px; line-height: 1.5; }
+  #status { font-size: 23px; font-weight: 700; background: #1b2740; border: 2px solid #9cc4ff; padding: 16px; margin: 16px 0; white-space: pre-wrap; word-break: break-word; }
+  button { font-size: 26px; padding: 16px 24px; cursor: pointer; background: #ffb020; color: #111; border: 0; border-radius: 10px; margin: 0 12px 12px 0; }
+  canvas { width: 100%; height: 240px; background: #222; display: block; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h1>XR diagnostic v2</h1>
+<p>Unlike v1, this one does what the official samples do: it creates a WebGL canvas first, then asks for a session and actually renders into it. If v1 failed only because it had no scene attached, this one should pass on the same hosting.</p>
+<div id="status">Ready. Tap a button below.</div>
+<button id="btn-webgl">ENTER VR — with WebGL scene</button>
+<button id="btn-plain">ENTER VR — plain request (v1 repeat)</button>
+<canvas id="c" width="800" height="400"></canvas>
+<script>
+const statusEl = document.getElementById('status');
+function setStatus(t) { statusEl.textContent = t; console.log(t); }
+
+async function startWebGL() {
+  setStatus('Creating WebGL context…');
+  const canvas = document.getElementById('c');
+  const gl = canvas.getContext('webgl2', { xrCompatible: true }) || canvas.getContext('webgl', { xrCompatible: true });
+  if (!gl) { setStatus('FAILED: no WebGL context.'); return; }
+  try {
+    if (gl.makeXRCompatible) await gl.makeXRCompatible();
+  } catch (e) { setStatus('FAILED makeXRCompatible: ' + (e && e.name ? e.name + ': ' : '') + (e && e.message || e)); return; }
+  setStatus('WebGL ready. Requesting immersive-vr session…');
+  let session;
+  try {
+    session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+  } catch (e) {
+    setStatus('FAILED requestSession (WebGL version): ' + (e && e.name ? e.name + ': ' : '') + (e && e.message || e));
+    return;
+  }
+  setStatus('Session started. Setting up render layer…');
+  try {
+    const layer = new XRWebGLLayer(session, gl);
+    session.updateRenderState({ baseLayer: layer });
+    let refSpace;
+    try { refSpace = await session.requestReferenceSpace('local-floor'); }
+    catch (e) { refSpace = await session.requestReferenceSpace('local'); }
+    setStatus('SUCCESS: session + WebGL layer + reference space ready. Rendering a clear colour in VR now. Exit with the system button and report SUCCESS.');
+    const onFrame = (time, frame) => {
+      const pose = frame.getViewerPose(refSpace);
+      if (pose) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+        for (const view of pose.views) {
+          const vp = layer.getViewport(view);
+          gl.viewport(vp.x, vp.y, vp.width, vp.height);
+          gl.clearColor(0.1, 0.3, 0.6, 1.0);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        }
+      }
+      session.requestAnimationFrame(onFrame);
+    };
+    session.requestAnimationFrame(onFrame);
+    session.addEventListener('end', () => setStatus('Session ended. Report: SUCCESS, then ended.'));
+  } catch (e) {
+    setStatus('FAILED after session start: ' + (e && e.name ? e.name + ': ' : '') + (e && e.message || e));
+  }
+}
+
+async function startPlain() {
+  setStatus('Requesting immersive-vr session (plain, no scene)…');
+  try {
+    const session = await navigator.xr.requestSession('immersive-vr', {});
+    setStatus('SUCCESS (plain): session started. Exit with the system button and report SUCCESS (plain).');
+    session.addEventListener('end', () => setStatus('Session ended. Report: SUCCESS (plain), then ended.'));
+  } catch (e) {
+    setStatus('FAILED (plain): ' + (e && e.name ? e.name + ': ' : '') + (e && e.message || e));
+  }
+}
+
+document.getElementById('btn-webgl').addEventListener('click', startWebGL);
+document.getElementById('btn-plain').addEventListener('click', startPlain);
+setStatus('Checks: secure=' + window.isSecureContext + ', top=' + (window.top === window.self) + ', xr=' + !!(navigator && navigator.xr) + '. Ready.');
+</script>
+</body>
+</html>
