@@ -21,16 +21,18 @@
 <body>
 <h1>XR voice test v4 — talk to the room</h1>
 <p><b>TEST PAGE ONLY — not Maison3D yet.</b> This page proves one thing: can you talk, in the headset, and change this room? Voice here is handled <b>locally in the page</b> — nothing is sent to Muse yet, and no server is involved. If this works, the next step is wiring the same trigger into Maison3D's loop. If speech recognition is missing in the Quest browser, that itself is the proof, and typing is the fallback.</p>
-<p><b>Open directly in the native Meta Browser on the Quest.</b> First, on this 2D page, press <b>Hold to talk</b> once: it asks for the microphone and shows whether this browser can recognise speech. Then tap <b>ENTER VR</b>, and in VR hold a controller trigger, speak, and let go.</p>
+<p><b>UPDATE — keyboard dictation workaround (you found this):</b> the browser's own SpeechRecognition API is missing, but the Quest keyboard's microphone button is OS-level dictation, like Muse-app dictation — it puts text into a text field, and this page then runs that text as a command. That bypasses the missing API entirely. Use <b>Dictate</b> below: it focuses the command box, the Quest keyboard appears, tap its mic, dictate, then Send. The change applies to the same room scene, so it carries into VR.</p>
+<p><b>Open directly in the native Meta Browser on the Quest.</b> Workflow A (proven for typing): dictate into the command box on this 2D page, Send, then tap <b>ENTER VR</b> — the room in VR should already show the change. Workflow B (experiment in this build): ENTER VR now also requests the DOM-overlay feature, so the command box may stay visible inside VR — if it does, tap it in VR, dictate with the keyboard mic, and Send without leaving VR. If no overlay appears, that feature is not supported here, and Workflow A is the way.</p>
 <p>Try saying: “make the sofa red”, “make the cube blue”, “make the table bigger”, “move the cube left”, “spin the cube”, “hide the lamp”, “show the lamp”.</p>
 <div id="status">Loading checks…</div>
 <div>
   <button id="btn-vr">ENTER VR — three.js room (v3 pattern)</button>
   <button id="btn-talk" class="green">Hold to talk</button>
+  <button id="btn-dictate" class="green">Dictate (keyboard mic)</button>
 </div>
-<div class="bar">
+<div class="bar" id="vr-command">
   <form id="typed" class="bar" style="flex:1">
-    <input id="text" placeholder="Or type a command, e.g. make the sofa red" autocomplete="off">
+    <input id="text" placeholder="Tap here, then tap the keyboard mic and dictate, e.g. make the sofa red" autocomplete="off">
     <button class="green" type="submit">Send</button>
   </form>
 </div>
@@ -211,19 +213,28 @@ for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) talkBtn.addEven
 document.getElementById('typed').addEventListener('submit', (e) => {
   e.preventDefault(); const el = document.getElementById('text'); const t = el.value.trim(); el.value = '';
   if (!t) return; buildRoom(); handleCommand(t);
+  log('Dictated/typed command applied to the same scene — it will be visible in VR too.');
+});
+document.getElementById('btn-dictate').addEventListener('click', () => {
+  buildRoom();
+  const el = document.getElementById('text'); el.focus();
+  setStatus('Dictate: the Quest keyboard should appear. Tap its microphone button, dictate a command (e.g. make the sofa red), then tap Send. No SpeechRecognition API needed — the keyboard does the dictation, like Muse-app dictation.');
+  log('Dictate pressed: input focused, waiting for keyboard dictation.');
 });
 document.getElementById('btn-vr').addEventListener('click', async () => {
   try { buildRoom(); } catch (e) { setStatus('FAILED building room (CDN / WebGL): ' + e.name + ': ' + e.message); return; }
   panelMesh.visible = true;
-  setStatus('Requesting immersive-vr (v3 pattern) …');
+  setStatus('Requesting immersive-vr (v3 pattern + dom-overlay experiment) …');
   try {
-    session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+    session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'dom-overlay'], domOverlay: { root: document.getElementById('vr-command') } });
   } catch (e) { setStatus('FAILED VR: ' + e.name + ': ' + e.message); return; }
+  log('VR session enabledFeatures: ' + JSON.stringify(session.enabledFeatures ?? 'not reported'));
   session.addEventListener('end', () => { session = null; setStatus('VR session ended. Report: SUCCESS, then ended.'); });
   try {
     await renderer.xr.setSession(session);
-    setStatus('SUCCESS: IN IMMERSIVE NOW. Hold a trigger, speak, let go. The panel below your gaze shows what was heard.');
-    panelSet('In VR', 'Hold a trigger and speak', 'try: make the sofa red');
+    const overlayOn = session.enabledFeatures && session.enabledFeatures.includes('dom-overlay');
+    setStatus('SUCCESS: IN IMMERSIVE NOW. dom-overlay=' + overlayOn + ' (if true, the command box should be visible in VR — tap it, dictate with the keyboard mic, Send. If false, exit VR, dictate on the flat page, then re-enter — the change carries over.) The panel below your gaze shows what was heard.');
+    panelSet('In VR', overlayOn ? 'Command box should be visible — dictate there' : 'No overlay here — dictate on the flat page, then re-enter', 'try: make the sofa red');
   } catch (e) { setStatus('Session started but setSession FAILED: ' + e.name + ': ' + e.message); }
 });
 </script>
